@@ -44,12 +44,15 @@ public class DocumentManager {
     public Document save(Document document) {
         Objects.requireNonNull(document);
 
-        assignIdIfAbsent(document);
+        Document enrichedDocument = Document.builder()
+                .author(document.getAuthor())
+                .content(document.getContent())
+                .title(document.getTitle())
+                .id(isBlank(document.getId()) ? UUID.randomUUID().toString() : document.getId())
+                .created(document.getCreated())
+                .build();
 
-        assignCreatedTimestampIfAbsent(document);
-
-        storeDocument(document);
-        return document;
+        return documentStorage.put(enrichedDocument.getId(), enrichedDocument);
     }
 
 
@@ -67,6 +70,7 @@ public class DocumentManager {
                 .toList();
     }
 
+
     /**
      * Implementation this method should find document by id
      *
@@ -77,20 +81,8 @@ public class DocumentManager {
         return Optional.ofNullable(documentStorage.get(id));
     }
 
-    private void assignIdIfAbsent(Document document) {
-        if (Objects.isNull(document.getId()) || document.getId().isEmpty()) {
-            document.setId(UUID.randomUUID().toString());
-        }
-    }
-
-    private void assignCreatedTimestampIfAbsent(Document document) {
-        if (Objects.isNull(document.getCreated())) {
-            document.setCreated(Instant.now());
-        }
-    }
-
-    private void storeDocument(Document document) {
-        documentStorage.put(document.id, document);
+    private boolean isBlank(String string) {
+        return Objects.isNull(string) || string.isEmpty();
     }
 
     private boolean matchesSearchRequest(Document document, SearchRequest request) {
@@ -124,14 +116,15 @@ public class DocumentManager {
 
     private boolean matchesCreatedFrom(Document document, SearchRequest request) {
         return Objects.nonNull(request.getCreatedFrom())
+                && Objects.nonNull(document.getCreated())
                 && document.getCreated().isAfter(request.getCreatedFrom());
     }
 
     private boolean matchesCreatedTo(Document document, SearchRequest request) {
         return Objects.nonNull(request.getCreatedTo())
+                && Objects.nonNull(document.getCreated())
                 && document.getCreated().isBefore(request.getCreatedTo());
     }
-
 
     private <T> boolean isNonEmpty(List<T> list) {
         return Objects.nonNull(list) && !list.isEmpty();
